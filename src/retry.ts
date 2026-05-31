@@ -16,31 +16,42 @@ export interface RetryOptions {
    * capped at `maxDelay`. Default: `false`.
    */
   jitter?: boolean;
-  /** Abort the retry sequence early. A pending wait rejects with {@link AbortError}. */
+  /**
+   * Abort the retry sequence. Aborting rejects with {@link AbortError}, cancels
+   * a pending backoff wait, and interrupts an in-flight attempt — the same
+   * signal is passed to `fn` so it can cancel its own work.
+   */
   signal?: AbortSignal;
   /** Called after each failed attempt, before the next one is scheduled. */
   onRetry?: (error: unknown, attempt: number) => void;
-  /** Return `false` to stop retrying and rethrow immediately. Default: always retry. */
-  shouldRetry?: (error: unknown, attempt: number) => boolean;
+  /**
+   * Return (or resolve to) `false` to stop retrying and rethrow immediately.
+   * Default: always retry.
+   */
+  shouldRetry?: (error: unknown, attempt: number) => boolean | Promise<boolean>;
 }
 
 /**
  * Calls `fn` and retries it with exponential backoff if it throws or rejects.
  *
- * The callback receives the 1-based attempt number. After the final attempt
- * fails, the last error is rethrown.
+ * `fn` receives the 1-based attempt number and the {@link RetryOptions.signal}
+ * (if any), so it can cancel its own work when the retry is aborted. After the
+ * final attempt fails, the last error is rethrown.
  *
  * @example
  * ```ts
- * const data = await retry(() => fetchFlaky(), {
- *   attempts: 5,
- *   delay: 200,
- *   shouldRetry: (err) => err instanceof NetworkError,
- * });
+ * const data = await retry(
+ *   (attempt, signal) => fetch(url, { signal }),
+ *   {
+ *     attempts: 5,
+ *     delay: 200,
+ *     shouldRetry: (err) => err instanceof NetworkError,
+ *   },
+ * );
  * ```
  */
 export async function retry<T>(
-  fn: (attempt: number) => Promise<T> | T,
+  fn: (attempt: number, signal?: AbortSignal) => Promise<T> | T,
   options: RetryOptions = {},
 ): Promise<T> {
   const {
@@ -66,12 +77,17 @@ export async function retry<T>(
     }
 
     try {
-      return await fn(attempt);
+      return await attemptWithAbort(fn, attempt, signal);
     } catch (error) {
       lastError = error;
 
+      // An abort wins outright — never retry past a cancellation.
+      if (signal?.aborted) {
+        throw error instanceof AbortError ? error : new AbortError();
+      }
+
       const isLastAttempt = attempt === attempts;
-      if (isLastAttempt || shouldRetry?.(error, attempt) === false) {
+      if (isLastAttempt || (await shouldRetry?.(error, attempt)) === false) {
         throw error;
       }
 
@@ -85,4 +101,40 @@ export async function retry<T>(
 
   // Unreachable: the loop either returns or throws, but satisfies the compiler.
   throw lastError;
+}
+
+/**
+ * Runs one attempt, rejecting with {@link AbortError} the moment `signal`
+ * aborts — even if `fn` ignores the signal and never settles on its own.
+ */
+function attemptWithAbort<T>(
+  fn: (attempt: number, signal?: AbortSignal) => Promise<T> | T,
+  attempt: number,
+  signal: AbortSignal | undefined,
+): Promise<T> {
+  let result: Promise<T>;
+  try {
+    result = Promise.resolve(fn(attempt, signal));
+  } catch (error) {
+    return Promise.reject(error);
+  }
+
+  if (!signal) {
+    return result;
+  }
+
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(new AbortError());
+    signal.addEventListener("abort", onAbort, { once: true });
+    result.then(
+      (value) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      },
+      (error) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(error);
+      },
+    );
+  });
 }

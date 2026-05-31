@@ -86,4 +86,48 @@ describe("retry", () => {
       RangeError,
     );
   });
+
+  it("interrupts an in-flight attempt that ignores the signal", async () => {
+    const controller = new AbortController();
+    // fn never settles on its own; only the abort can end the attempt.
+    const promise = retry(() => new Promise<never>(() => {}), {
+      delay: 0,
+      signal: controller.signal,
+    });
+    controller.abort();
+    await expect(promise).rejects.toBeInstanceOf(AbortError);
+  });
+
+  it("passes the abort signal to fn so it can cancel its own work", async () => {
+    const controller = new AbortController();
+    let sawAbort = false;
+    const promise = retry(
+      (_attempt, signal) =>
+        new Promise<never>((_resolve, reject) => {
+          signal?.addEventListener("abort", () => {
+            sawAbort = true;
+            reject(new AbortError());
+          });
+        }),
+      { delay: 0, signal: controller.signal },
+    );
+    controller.abort();
+    await expect(promise).rejects.toBeInstanceOf(AbortError);
+    expect(sawAbort).toBe(true);
+  });
+
+  it("supports an async shouldRetry", async () => {
+    const fn = vi.fn(async () => {
+      throw new Error("nope");
+    });
+    await expect(
+      retry(fn, {
+        attempts: 5,
+        delay: 0,
+        shouldRetry: async (error) => (error as Error).message === "retryable",
+      }),
+    ).rejects.toThrow("nope");
+    // async shouldRetry resolved false → stop after the first attempt.
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
 });

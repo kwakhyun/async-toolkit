@@ -45,18 +45,20 @@ console.log(user.name); // `user` narrowed to non-null
 ```ts
 import { retry } from "async-toolkit";
 
-const data = await retry(() => fetchFlaky(), {
+const data = await retry((attempt, signal) => fetchFlaky({ signal }), {
   attempts: 5,      // total tries incl. the first (default 3)
   delay: 200,       // base delay ms (default 100)
   factor: 2,        // backoff multiplier (default 2)
   maxDelay: 5000,   // cap per-wait delay
   jitter: true,     // randomize delays to avoid thundering herds
-  shouldRetry: (err) => err instanceof NetworkError,
+  shouldRetry: async (err) => err instanceof NetworkError, // sync or async
   onRetry: (err, attempt) => console.warn(`retry #${attempt}`, err),
 });
 ```
 
-Pass an `AbortSignal` to cancel a pending wait — it rejects with `AbortError`.
+`fn` receives the attempt number and the `signal`. Aborting the signal rejects
+with `AbortError` and **interrupts the in-flight attempt immediately** — even if
+`fn` ignores the signal — as well as cancelling any pending backoff wait.
 
 ### `timeout` — bound latency
 
