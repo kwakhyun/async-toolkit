@@ -1,6 +1,6 @@
 {
   "name": "async-toolkit",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Zero-dependency async toolkit for TypeScript — retry, timeout, pLimit, pMap, sleep, defer & error-as-value. Tree-shakeable, ESM + CJS.",
   "type": "module",
   "main": "./dist/index.cjs",
