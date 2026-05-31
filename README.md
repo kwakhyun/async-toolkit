@@ -71,11 +71,20 @@ try {
 ```
 
 Pass an `AbortSignal` as the third argument to reject the wait early with
-`AbortError`. Wire it to a cancellable source to also stop the underlying work:
+`AbortError`.
+
+To **actually cancel** the underlying work on timeout (not just stop waiting),
+pass a `(signal) => Promise` factory instead of a promise. `timeout` aborts that
+signal when the deadline passes or the external signal fires, so the work frees
+its resources:
 
 ```ts
+// the fetch is aborted when the 5s deadline passes
+const data = await timeout((signal) => fetch(url, { signal }), 5000);
+
+// also cancellable from outside
 const ac = new AbortController();
-const data = await timeout(fetch(url, { signal: ac.signal }), 5000, ac.signal);
+const data = await timeout((signal) => fetch(url, { signal }), 5000, ac.signal);
 ```
 
 ### `pLimit` — cap concurrency
@@ -95,14 +104,22 @@ limit.pendingCount; // waiting in the queue
 ```ts
 import { pMap } from "async-toolkit";
 
-const bodies = await pMap(urls, (url) => fetch(url).then((r) => r.text()), {
-  concurrency: 4,
-  stopOnError: false, // aggregate failures into an AggregateError
-  signal: ac.signal,  // abort early, discarding queued mappers
-});
+const bodies = await pMap(
+  urls,
+  // each mapper gets a signal that aborts if the map is cancelled
+  (url, _i, signal) => fetch(url, { signal }).then((r) => r.text()),
+  {
+    concurrency: 4,
+    stopOnError: false, // aggregate failures into an AggregateError
+    signal: ac.signal,  // abort early, discarding queued mappers
+  },
+);
 ```
 
 Results are returned in input order regardless of which mapper settles first.
+The mapper's third argument is an `AbortSignal` that fires when the map is
+cancelled — via `signal`, or (with `stopOnError`) when a sibling mapper fails —
+so in-flight mappers can stop their own work instead of running on in vain.
 
 ### `sleep` — cancellable delay
 

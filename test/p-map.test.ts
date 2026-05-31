@@ -102,4 +102,48 @@ describe("pMap", () => {
       pMap([1], async (n) => n, { signal: ac.signal }),
     ).rejects.toBeInstanceOf(AbortError);
   });
+
+  it("aborts in-flight mappers via the mapper signal on first error (stopOnError)", async () => {
+    let abortedCount = 0;
+    await expect(
+      pMap([1, 2, 3], async (n, _i, signal) => {
+        if (n === 1) throw new Error("boom");
+        await new Promise<void>((_resolve, reject) => {
+          signal.addEventListener(
+            "abort",
+            () => {
+              abortedCount++;
+              reject(new AbortError());
+            },
+            { once: true },
+          );
+        });
+        return n;
+      }),
+    ).rejects.toThrow("boom");
+    expect(abortedCount).toBe(2);
+  });
+
+  it("aborts in-flight mappers via the mapper signal when the external signal aborts", async () => {
+    const ac = new AbortController();
+    let sawAbort = false;
+    const promise = pMap(
+      [1],
+      (_n, _i, signal) =>
+        new Promise<number>((_resolve, reject) => {
+          signal.addEventListener(
+            "abort",
+            () => {
+              sawAbort = true;
+              reject(new AbortError());
+            },
+            { once: true },
+          );
+        }),
+      { signal: ac.signal },
+    );
+    ac.abort();
+    await expect(promise).rejects.toBeInstanceOf(AbortError);
+    expect(sawAbort).toBe(true);
+  });
 });
