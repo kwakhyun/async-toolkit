@@ -48,16 +48,16 @@
     "cjs",
     "typescript"
   ],
-  "author": "",
+  "author": "kwakhyun <khyun9685@gmail.com>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/your-username/async-toolkit.git"
+    "url": "git+https://github.com/kwakhyun/async-toolkit.git"
   },
   "bugs": {
-    "url": "https://github.com/your-username/async-toolkit/issues"
+    "url": "https://github.com/kwakhyun/async-toolkit/issues"
   },
-  "homepage": "https://github.com/your-username/async-toolkit#readme",
+  "homepage": "https://github.com/kwakhyun/async-toolkit#readme",
   "devDependencies": {
     "@vitest/coverage-v8": "^2.1.8",
     "tsup": "^8.3.5",
