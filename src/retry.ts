@@ -1,12 +1,5 @@
-/**
- * Raised when an {@link AbortSignal} aborts a retry sequence.
- */
-export class AbortError extends Error {
-  constructor(message = "The operation was aborted") {
-    super(message);
-    this.name = "AbortError";
-  }
-}
+import { AbortError } from "./abort-error.js";
+import { sleep } from "./sleep.js";
 
 export interface RetryOptions {
   /** Total number of attempts, including the first. Default: `3`. */
@@ -25,27 +18,6 @@ export interface RetryOptions {
   onRetry?: (error: unknown, attempt: number) => void;
   /** Return `false` to stop retrying and rethrow immediately. Default: always retry. */
   shouldRetry?: (error: unknown, attempt: number) => boolean;
-}
-
-function wait(ms: number, signal?: AbortSignal): Promise<void> {
-  return new Promise<void>((resolve, reject) => {
-    if (signal?.aborted) {
-      reject(new AbortError());
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      signal?.removeEventListener("abort", onAbort);
-      resolve();
-    }, ms);
-
-    const onAbort = () => {
-      clearTimeout(timer);
-      reject(new AbortError());
-    };
-
-    signal?.addEventListener("abort", onAbort, { once: true });
-  });
 }
 
 /**
@@ -103,7 +75,7 @@ export async function retry<T>(
 
       const backoff = Math.min(delay * factor ** (attempt - 1), maxDelay);
       const waitMs = jitter ? Math.random() * backoff : backoff;
-      await wait(waitMs, signal);
+      await sleep(waitMs, signal);
     }
   }
 

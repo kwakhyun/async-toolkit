@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import { retry, AbortError } from "../src/retry.js";
+import { retry } from "../src/retry.js";
+import { AbortError } from "../src/abort-error.js";
 
 describe("retry", () => {
   it("returns immediately when the first attempt succeeds", async () => {

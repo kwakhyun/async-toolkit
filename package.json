@@ -1,7 +1,7 @@
 {
-  "name": "safe-async",
+  "name": "async-toolkit",
   "version": "0.1.0",
-  "description": "Tiny, dependency-free async helpers for TypeScript: retry, timeout, concurrency limiting, and error-as-value handling.",
+  "description": "Zero-dependency async toolkit for TypeScript — retry, timeout, pLimit, pMap, sleep, defer & error-as-value. Tree-shakeable, ESM + CJS.",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -31,24 +31,33 @@
   },
   "keywords": [
     "async",
+    "await",
+    "promise",
     "retry",
     "backoff",
     "timeout",
     "concurrency",
     "p-limit",
-    "promise",
+    "p-map",
+    "sleep",
+    "delay",
+    "defer",
+    "deferred",
+    "toolkit",
+    "esm",
+    "cjs",
     "typescript"
   ],
   "author": "",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/your-username/safe-async.git"
+    "url": "git+https://github.com/your-username/async-toolkit.git"
   },
   "bugs": {
-    "url": "https://github.com/your-username/safe-async/issues"
+    "url": "https://github.com/your-username/async-toolkit/issues"
   },
-  "homepage": "https://github.com/your-username/safe-async#readme",
+  "homepage": "https://github.com/your-username/async-toolkit#readme",
   "devDependencies": {
     "@vitest/coverage-v8": "^2.1.8",
     "tsup": "^8.3.5",
