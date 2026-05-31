@@ -1,0 +1,58 @@
+{
+  "name": "safe-async",
+  "version": "0.1.0",
+  "description": "Tiny, dependency-free async helpers for TypeScript: retry, timeout, concurrency limiting, and error-as-value handling.",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "async",
+    "retry",
+    "backoff",
+    "timeout",
+    "concurrency",
+    "p-limit",
+    "promise",
+    "typescript"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/your-username/safe-async.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/safe-async/issues"
+  },
+  "homepage": "https://github.com/your-username/safe-async#readme",
+  "devDependencies": {
+    "@vitest/coverage-v8": "^2.1.8",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
