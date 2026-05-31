@@ -16,6 +16,10 @@ import { AbortError } from "./abort-error.js";
  * ```
  */
 export function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  if (Number.isNaN(ms) || ms < 0) {
+    throw new RangeError("`ms` must be a non-negative number");
+  }
+
   return new Promise<void>((resolve, reject) => {
     if (signal?.aborted) {
       reject(new AbortError());

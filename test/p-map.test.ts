@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { pMap } from "../src/p-map.js";
+import { AbortError } from "../src/abort-error.js";
 
 const defer = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -60,5 +61,45 @@ describe("pMap", () => {
 
   it("handles an empty iterable", async () => {
     expect(await pMap([], async (n) => n)).toEqual([]);
+  });
+
+  it("stops starting queued mappers after the first error (stopOnError)", async () => {
+    const started: number[] = [];
+    await expect(
+      pMap(
+        [1, 2, 3, 4],
+        async (n) => {
+          started.push(n);
+          if (n === 1) throw new Error("boom");
+          await defer(20);
+          return n;
+        },
+        { concurrency: 1 },
+      ),
+    ).rejects.toThrow("boom");
+    // Item 1 runs first and throws; the queue is cleared, so 2–4 never start.
+    expect(started).toEqual([1]);
+  });
+
+  it("rejects with AbortError when the signal aborts mid-map", async () => {
+    const ac = new AbortController();
+    const promise = pMap(
+      [1, 2, 3],
+      async () => {
+        await new Promise<void>(() => {}); // never settles
+        return 1;
+      },
+      { signal: ac.signal },
+    );
+    ac.abort();
+    await expect(promise).rejects.toBeInstanceOf(AbortError);
+  });
+
+  it("rejects immediately when the signal is already aborted", async () => {
+    const ac = new AbortController();
+    ac.abort();
+    await expect(
+      pMap([1], async (n) => n, { signal: ac.signal }),
+    ).rejects.toBeInstanceOf(AbortError);
   });
 });

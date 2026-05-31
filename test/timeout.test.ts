@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { timeout, TimeoutError } from "../src/timeout.js";
+import { AbortError } from "../src/abort-error.js";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -32,5 +33,25 @@ describe("timeout", () => {
     await vi.advanceTimersByTimeAsync(250);
     const error = await guarded;
     expect(error.ms).toBe(250);
+  });
+
+  it("rejects with AbortError when the signal aborts mid-wait", async () => {
+    const ac = new AbortController();
+    const guarded = timeout(new Promise<never>(() => {}), 1000, ac.signal);
+    ac.abort();
+    await expect(guarded).rejects.toBeInstanceOf(AbortError);
+  });
+
+  it("rejects immediately when the signal is already aborted", async () => {
+    const ac = new AbortController();
+    ac.abort();
+    await expect(
+      timeout(Promise.resolve("x"), 1000, ac.signal),
+    ).rejects.toBeInstanceOf(AbortError);
+  });
+
+  it("throws RangeError for a negative or NaN timeout", () => {
+    expect(() => timeout(Promise.resolve(1), -1)).toThrow(RangeError);
+    expect(() => timeout(Promise.resolve(1), Number.NaN)).toThrow(RangeError);
   });
 });

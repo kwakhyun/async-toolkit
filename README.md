@@ -6,7 +6,7 @@ Instead of installing and version-juggling `p-retry` + `p-limit` + `p-timeout` +
 
 - 🪶 **Zero dependencies**, fully tree-shakeable — unused helpers add nothing to your bundle
 - 🔀 **ESM _and_ CommonJS** — unlike the `p-*` family, which is ESM-only
-- 🔒 **First-class TypeScript** — generics, narrowing, and a shared `AbortSignal` convention across every helper
+- 🔒 **First-class TypeScript** — generics, narrowing, and a shared `AbortSignal` convention across every helper that waits or does work (`sleep`, `retry`, `timeout`, `pMap`)
 - ✅ Works in Node ≥ 18 and modern browsers
 
 ## Why not just use `p-retry`, `p-limit`, …?
@@ -70,6 +70,14 @@ try {
 }
 ```
 
+Pass an `AbortSignal` as the third argument to reject the wait early with
+`AbortError`. Wire it to a cancellable source to also stop the underlying work:
+
+```ts
+const ac = new AbortController();
+const data = await timeout(fetch(url, { signal: ac.signal }), 5000, ac.signal);
+```
+
 ### `pLimit` — cap concurrency
 
 ```ts
@@ -90,6 +98,7 @@ import { pMap } from "async-toolkit";
 const bodies = await pMap(urls, (url) => fetch(url).then((r) => r.text()), {
   concurrency: 4,
   stopOnError: false, // aggregate failures into an AggregateError
+  signal: ac.signal,  // abort early, discarding queued mappers
 });
 ```
 
@@ -124,7 +133,7 @@ const result = await d.promise;
 | --- | --- |
 | `to(promise)` | Resolves to `[error, null]` or `[null, value]`. |
 | `retry(fn, options?)` | Retries `fn` with exponential backoff. |
-| `timeout(promise, ms)` | Rejects with `TimeoutError` if `promise` is too slow. |
+| `timeout(promise, ms, signal?)` | Rejects with `TimeoutError` if `promise` is too slow, or `AbortError` if `signal` aborts. |
 | `pLimit(concurrency)` | Returns a function that limits concurrent tasks. |
 | `pMap(items, mapper, options?)` | Concurrency-limited, order-preserving async map. |
 | `sleep(ms, signal?)` | Cancellable delay. |

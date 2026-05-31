@@ -5,7 +5,12 @@ export interface LimitFunction {
   readonly activeCount: number;
   /** Number of tasks waiting for a free slot. */
   readonly pendingCount: number;
-  /** Discards queued tasks that have not started yet. Running tasks are unaffected. */
+  /**
+   * Discards queued tasks that have not started yet. Running tasks are
+   * unaffected. Note: the promises already returned for the discarded tasks
+   * stay pending forever — settle them yourself (e.g. race against an
+   * `AbortSignal`) if a caller might be awaiting them.
+   */
   clearQueue(): void;
 }
 

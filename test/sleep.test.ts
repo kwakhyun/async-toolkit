@@ -29,4 +29,9 @@ describe("sleep", () => {
     ac.abort();
     await expect(sleep(1000, ac.signal)).rejects.toBeInstanceOf(AbortError);
   });
+
+  it("throws RangeError for a negative or NaN delay", () => {
+    expect(() => sleep(-1)).toThrow(RangeError);
+    expect(() => sleep(Number.NaN)).toThrow(RangeError);
+  });
 });

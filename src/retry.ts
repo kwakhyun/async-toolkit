@@ -10,7 +10,11 @@ export interface RetryOptions {
   factor?: number;
   /** Upper bound for the computed delay, in milliseconds. Default: `Infinity`. */
   maxDelay?: number;
-  /** Randomize each delay within `[0, delay]` to avoid thundering herds. Default: `false`. */
+  /**
+   * Randomize each delay within `[0, current backoff]` (full jitter) to avoid
+   * thundering herds, where the backoff is `delay * factor ** (attempt - 1)`
+   * capped at `maxDelay`. Default: `false`.
+   */
   jitter?: boolean;
   /** Abort the retry sequence early. A pending wait rejects with {@link AbortError}. */
   signal?: AbortSignal;
