@@ -36,9 +36,17 @@ npm install async-toolkit
 import { to } from "async-toolkit";
 
 const [err, user] = await to(fetchUser(id));
-if (err) return res.status(500).send(err.message);
+if (err) {
+  // `err` is `unknown` — narrow it before use
+  const message = err instanceof Error ? err.message : String(err);
+  return res.status(500).send(message);
+}
 console.log(user.name); // `user` narrowed to non-null
 ```
+
+`err` is typed as `unknown` (anything can be thrown in JS), so narrow it with
+`instanceof` before use. Pass an explicit type if you know the shape:
+`to<User, ApiError>(fetchUser(id))`.
 
 ### `retry` — exponential backoff
 
@@ -119,6 +127,8 @@ const bodies = await pMap(
 ```
 
 Results are returned in input order regardless of which mapper settles first.
+With `stopOnError: false`, the aggregated `AggregateError.errors` are likewise
+ordered by input position, not by when each mapper failed.
 The mapper's third argument is an `AbortSignal` that fires when the map is
 cancelled — via `signal`, or (with `stopOnError`) when a sibling mapper fails —
 so in-flight mappers can stop their own work instead of running on in vain.

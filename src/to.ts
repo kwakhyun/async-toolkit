@@ -4,7 +4,7 @@
  * - On success: `[null, value]`
  * - On failure: `[error, null]`
  */
-export type Result<T, E = Error> = [E, null] | [null, T];
+export type Result<T, E = unknown> = [E, null] | [null, T];
 
 /**
  * Wraps a promise and resolves to a `[error, data]` tuple instead of throwing,
@@ -17,7 +17,7 @@ export type Result<T, E = Error> = [E, null] | [null, T];
  * console.log(user.name); // narrowed to non-null
  * ```
  */
-export async function to<T, E = Error>(
+export async function to<T, E = unknown>(
   promise: Promise<T>,
 ): Promise<Result<T, E>> {
   try {

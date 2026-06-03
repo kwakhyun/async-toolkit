@@ -63,7 +63,10 @@ export async function pMap<Item, Result>(
   const controller = new AbortController();
 
   const results = new Array<Result>(list.length);
-  const errors: unknown[] = [];
+  // Sparse array indexed by input position so aggregated errors preserve input
+  // order, matching the order-preserving guarantee of the results.
+  const errors = new Array<unknown>(list.length);
+  let errorCount = 0;
 
   const all = Promise.all(
     list.map((item, index) =>
@@ -79,7 +82,8 @@ export async function pMap<Item, Result>(
             limit.clearQueue(); // and drop the ones not started yet
             throw error;
           }
-          errors.push(error);
+          errors[index] = error;
+          errorCount++;
         }
       }),
     ),
@@ -104,8 +108,12 @@ export async function pMap<Item, Result>(
     if (onAbort) signal?.removeEventListener("abort", onAbort);
   }
 
-  if (errors.length > 0) {
-    throw new AggregateError(errors, `${errors.length} mapper(s) failed`);
+  if (errorCount > 0) {
+    // Drop the empty slots, keeping only the errors in input order.
+    const collected = [...errors.keys()]
+      .filter((i) => i in errors)
+      .map((i) => errors[i]);
+    throw new AggregateError(collected, `${errorCount} mapper(s) failed`);
   }
 
   return results;
