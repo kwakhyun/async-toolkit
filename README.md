@@ -13,12 +13,12 @@ Instead of installing and version-juggling `p-retry` + `p-limit` + `p-timeout` +
 
 Those are excellent packages (and the inspiration here), but they have two friction points this toolkit removes:
 
-| | `p-*` family | **async-toolkit** |
-| --- | --- | --- |
-| Install footprint | one package **per** helper | **one** package |
-| Module formats | **ESM only** (no `require`) | **ESM + CJS** |
-| API consistency | each its own conventions | one consistent options & `AbortSignal` style |
-| Bundle cost | per-package overhead | shared internals, tree-shaken |
+|                   | `p-*` family                | **async-toolkit**                            |
+| ----------------- | --------------------------- | -------------------------------------------- |
+| Install footprint | one package **per** helper  | **one** package                              |
+| Module formats    | **ESM only** (no `require`) | **ESM + CJS**                                |
+| API consistency   | each its own conventions    | one consistent options & `AbortSignal` style |
+| Bundle cost       | per-package overhead        | shared internals, tree-shaken                |
 
 If you're already all-ESM and only need one helper, the single-purpose packages are great. If you want **one dependency, CJS support, and a consistent API**, reach for this.
 
@@ -54,11 +54,11 @@ console.log(user.name); // `user` narrowed to non-null
 import { retry } from "async-toolkit";
 
 const data = await retry((attempt, signal) => fetchFlaky({ signal }), {
-  attempts: 5,      // total tries incl. the first (default 3)
-  delay: 200,       // base delay ms (default 100)
-  factor: 2,        // backoff multiplier (default 2)
-  maxDelay: 5000,   // cap per-wait delay
-  jitter: true,     // randomize delays to avoid thundering herds
+  attempts: 5, // total tries incl. the first (default 3)
+  delay: 200, // base delay ms (default 100)
+  factor: 2, // backoff multiplier (default 2)
+  maxDelay: 5000, // cap per-wait delay
+  jitter: true, // randomize delays to avoid thundering herds
   shouldRetry: async (err) => err instanceof NetworkError, // sync or async
   onRetry: (err, attempt) => console.warn(`retry #${attempt}`, err),
 });
@@ -105,7 +105,7 @@ import { pLimit } from "async-toolkit";
 const limit = pLimit(2); // at most 2 in flight at once
 const results = await Promise.all(urls.map((url) => limit(() => fetch(url))));
 
-limit.activeCount;  // currently running
+limit.activeCount; // currently running
 limit.pendingCount; // waiting in the queue
 ```
 
@@ -121,7 +121,7 @@ const bodies = await pMap(
   {
     concurrency: 4,
     stopOnError: false, // aggregate failures into an AggregateError
-    signal: ac.signal,  // abort early, discarding queued mappers
+    signal: ac.signal, // abort early, discarding queued mappers
   },
 );
 ```
@@ -158,15 +158,15 @@ const result = await d.promise;
 
 ## API
 
-| Export | Description |
-| --- | --- |
-| `to(promise)` | Resolves to `[error, null]` or `[null, value]`. |
-| `retry(fn, options?)` | Retries `fn` with exponential backoff. |
+| Export                          | Description                                                                               |
+| ------------------------------- | ----------------------------------------------------------------------------------------- |
+| `to(promise)`                   | Resolves to `[error, null]` or `[null, value]`.                                           |
+| `retry(fn, options?)`           | Retries `fn` with exponential backoff.                                                    |
 | `timeout(promise, ms, signal?)` | Rejects with `TimeoutError` if `promise` is too slow, or `AbortError` if `signal` aborts. |
-| `pLimit(concurrency)` | Returns a function that limits concurrent tasks. |
-| `pMap(items, mapper, options?)` | Concurrency-limited, order-preserving async map. |
-| `sleep(ms, signal?)` | Cancellable delay. |
-| `defer()` | A promise plus its `resolve`/`reject`. |
+| `pLimit(concurrency)`           | Returns a function that limits concurrent tasks.                                          |
+| `pMap(items, mapper, options?)` | Concurrency-limited, order-preserving async map.                                          |
+| `sleep(ms, signal?)`            | Cancellable delay.                                                                        |
+| `defer()`                       | A promise plus its `resolve`/`reject`.                                                    |
 
 Types `Result`, `RetryOptions`, `LimitFunction`, `PMapOptions`, `Deferred` and
 errors `TimeoutError`, `AbortError` are also exported.
