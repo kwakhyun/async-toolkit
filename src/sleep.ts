@@ -1,9 +1,13 @@
 import { AbortError } from "./abort-error.js";
+import { setSafeTimeout } from "./timer.js";
 
 /**
  * Resolves after `ms` milliseconds. Pass an {@link AbortSignal} to cancel the
  * wait early — a cancelled sleep rejects with {@link AbortError} rather than
  * resolving, so it composes cleanly inside `try`/`catch`.
+ *
+ * Delays beyond ~24.8 days (and `Infinity`) are honored exactly rather than
+ * firing early; an `Infinity` delay resolves only when aborted.
  *
  * @example
  * ```ts
@@ -26,13 +30,13 @@ export function sleep(ms: number, signal?: AbortSignal): Promise<void> {
       return;
     }
 
-    const timer = setTimeout(() => {
+    const cancel = setSafeTimeout(() => {
       signal?.removeEventListener("abort", onAbort);
       resolve();
     }, ms);
 
     const onAbort = () => {
-      clearTimeout(timer);
+      cancel();
       reject(new AbortError());
     };
 

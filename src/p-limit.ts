@@ -6,12 +6,26 @@ export interface LimitFunction {
   /** Number of tasks waiting for a free slot. */
   readonly pendingCount: number;
   /**
-   * Discards queued tasks that have not started yet. Running tasks are
-   * unaffected. Note: the promises already returned for the discarded tasks
-   * stay pending forever — settle them yourself (e.g. race against an
-   * `AbortSignal`) if a caller might be awaiting them.
+   * Maximum number of tasks allowed to run at once. Assign to raise or lower
+   * the limit on the fly — raising it immediately starts as many queued tasks
+   * as now fit. Must be a positive integer.
    */
-  clearQueue(): void;
+  concurrency: number;
+  /**
+   * Discards queued tasks that have not started yet. Running tasks are
+   * unaffected.
+   *
+   * Pass a `reason` to reject the promises already returned for the discarded
+   * tasks with it. With no argument they instead stay pending forever — settle
+   * them yourself (e.g. race against an `AbortSignal`) if a caller might be
+   * awaiting them.
+   */
+  clearQueue(reason?: unknown): void;
+}
+
+interface QueueEntry {
+  start: () => void;
+  reject: (reason?: unknown) => void;
 }
 
 /**
@@ -27,18 +41,23 @@ export interface LimitFunction {
  * ```
  */
 export function pLimit(concurrency: number): LimitFunction {
-  if (!Number.isInteger(concurrency) || concurrency < 1) {
-    throw new RangeError("`concurrency` must be a positive integer");
-  }
+  assertConcurrency(concurrency);
 
-  const queue: Array<() => void> = [];
+  const queue: QueueEntry[] = [];
+  let concurrencyLimit = concurrency;
   let activeCount = 0;
+
+  // Start queued tasks while there is spare capacity. Called whenever a slot
+  // frees up (a task settles) or the limit is raised.
+  const drain = () => {
+    while (activeCount < concurrencyLimit && queue.length > 0) {
+      queue.shift()!.start();
+    }
+  };
 
   const next = () => {
     activeCount--;
-    if (queue.length > 0) {
-      queue.shift()!();
-    }
+    drain();
   };
 
   const run = async <T>(
@@ -58,19 +77,40 @@ export function pLimit(concurrency: number): LimitFunction {
 
   const limit = <T>(fn: () => Promise<T> | T): Promise<T> =>
     new Promise<T>((resolve, reject) => {
-      const task = () => void run(fn, resolve, reject);
-      if (activeCount < concurrency) {
-        task();
+      const start = () => void run(fn, resolve, reject);
+      if (activeCount < concurrencyLimit) {
+        start();
       } else {
-        queue.push(task);
+        queue.push({ start, reject });
       }
     });
 
   Object.defineProperties(limit, {
     activeCount: { get: () => activeCount },
     pendingCount: { get: () => queue.length },
-    clearQueue: { value: () => void (queue.length = 0) },
+    concurrency: {
+      get: () => concurrencyLimit,
+      set: (value: number) => {
+        assertConcurrency(value);
+        concurrencyLimit = value;
+        drain();
+      },
+    },
+    clearQueue: {
+      value: function (reason?: unknown) {
+        if (arguments.length > 0) {
+          for (const entry of queue) entry.reject(reason);
+        }
+        queue.length = 0;
+      },
+    },
   });
 
   return limit as LimitFunction;
+}
+
+function assertConcurrency(value: number): void {
+  if (!Number.isInteger(value) || value < 1) {
+    throw new RangeError("`concurrency` must be a positive integer");
+  }
 }

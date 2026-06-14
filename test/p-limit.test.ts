@@ -67,4 +67,51 @@ describe("pLimit", () => {
     expect(() => pLimit(0)).toThrow(RangeError);
     expect(() => pLimit(1.5)).toThrow(RangeError);
   });
+
+  it("exposes the current concurrency", () => {
+    const limit = pLimit(3);
+    expect(limit.concurrency).toBe(3);
+  });
+
+  it("starts queued tasks immediately when concurrency is raised", async () => {
+    const limit = pLimit(1);
+    let running = 0;
+    let peak = 0;
+
+    const task = () =>
+      limit(async () => {
+        running++;
+        peak = Math.max(peak, running);
+        await defer(20);
+        running--;
+      });
+
+    const all = Promise.all(Array.from({ length: 4 }, task));
+    expect(limit.activeCount).toBe(1);
+    expect(limit.pendingCount).toBe(3);
+
+    limit.concurrency = 3;
+    expect(limit.activeCount).toBe(3);
+    expect(limit.pendingCount).toBe(1);
+
+    await all;
+    expect(peak).toBe(3);
+  });
+
+  it("rejects setting an invalid concurrency", () => {
+    const limit = pLimit(2);
+    expect(() => (limit.concurrency = 0)).toThrow(RangeError);
+    expect(() => (limit.concurrency = 1.5)).toThrow(RangeError);
+  });
+
+  it("clearQueue(reason) rejects the pending tasks", async () => {
+    const limit = pLimit(1);
+    limit(() => defer(20));
+    const queued = limit(() => defer(20));
+    expect(limit.pendingCount).toBe(1);
+
+    limit.clearQueue(new Error("cancelled"));
+    await expect(queued).rejects.toThrow("cancelled");
+    expect(limit.pendingCount).toBe(0);
+  });
 });

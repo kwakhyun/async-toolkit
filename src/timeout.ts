@@ -1,4 +1,5 @@
 import { AbortError } from "./abort-error.js";
+import { setSafeTimeout } from "./timer.js";
 
 /**
  * Error thrown when a {@link timeout} elapses before the wrapped promise settles.
@@ -71,7 +72,7 @@ export function timeout<T>(
     const controller = isFactory ? new AbortController() : undefined;
 
     const cleanup = () => {
-      clearTimeout(timer);
+      cancelTimer();
       signal?.removeEventListener("abort", onAbort);
     };
 
@@ -83,7 +84,7 @@ export function timeout<T>(
       reject(new AbortError());
     };
 
-    const timer = setTimeout(() => {
+    const cancelTimer = setSafeTimeout(() => {
       if (settled) return;
       settled = true;
       controller?.abort();

@@ -48,6 +48,13 @@ console.log(user.name); // `user` narrowed to non-null
 `instanceof` before use. Pass an explicit type if you know the shape:
 `to<User, ApiError>(fetchUser(id))`.
 
+You can also pass a function instead of a promise — handy for wrapping
+synchronous code, since `to` then captures a thrown error too:
+
+```ts
+const [err, config] = await to(() => JSON.parse(raw));
+```
+
 ### `retry` — exponential backoff
 
 ```ts
@@ -107,6 +114,10 @@ const results = await Promise.all(urls.map((url) => limit(() => fetch(url))));
 
 limit.activeCount; // currently running
 limit.pendingCount; // waiting in the queue
+
+limit.concurrency = 5; // raise/lower the limit — raising starts queued tasks now
+limit.clearQueue(); // drop not-yet-started tasks (their promises stay pending)
+limit.clearQueue(reason); // ...or reject those pending promises with `reason`
 ```
 
 ### `pMap` — concurrency-limited map
@@ -160,7 +171,7 @@ const result = await d.promise;
 
 | Export                          | Description                                                                               |
 | ------------------------------- | ----------------------------------------------------------------------------------------- |
-| `to(promise)`                   | Resolves to `[error, null]` or `[null, value]`.                                           |
+| `to(promise \| fn)`             | Resolves to `[error, null]` or `[null, value]`.                                           |
 | `retry(fn, options?)`           | Retries `fn` with exponential backoff.                                                    |
 | `timeout(promise, ms, signal?)` | Rejects with `TimeoutError` if `promise` is too slow, or `AbortError` if `signal` aborts. |
 | `pLimit(concurrency)`           | Returns a function that limits concurrent tasks.                                          |

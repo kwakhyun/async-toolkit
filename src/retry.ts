@@ -22,13 +22,21 @@ export interface RetryOptions {
    * signal is passed to `fn` so it can cancel its own work.
    */
   signal?: AbortSignal;
-  /** Called after each failed attempt, before the next one is scheduled. */
-  onRetry?: (error: unknown, attempt: number) => void;
+  /**
+   * Called after each failed attempt, before the next one is scheduled.
+   * Receives the {@link RetryOptions.signal} (if any) as its third argument.
+   */
+  onRetry?: (error: unknown, attempt: number, signal?: AbortSignal) => void;
   /**
    * Return (or resolve to) `false` to stop retrying and rethrow immediately.
+   * Receives the {@link RetryOptions.signal} (if any) as its third argument.
    * Default: always retry.
    */
-  shouldRetry?: (error: unknown, attempt: number) => boolean | Promise<boolean>;
+  shouldRetry?: (
+    error: unknown,
+    attempt: number,
+    signal?: AbortSignal,
+  ) => boolean | Promise<boolean>;
 }
 
 /**
@@ -87,11 +95,20 @@ export async function retry<T>(
       }
 
       const isLastAttempt = attempt === attempts;
-      if (isLastAttempt || (await shouldRetry?.(error, attempt)) === false) {
+      if (
+        isLastAttempt ||
+        (await shouldRetry?.(error, attempt, signal)) === false
+      ) {
         throw error;
       }
 
-      onRetry?.(error, attempt);
+      // `shouldRetry` may have awaited; an abort during it ends things now,
+      // before scheduling another attempt.
+      if (signal?.aborted) {
+        throw new AbortError();
+      }
+
+      onRetry?.(error, attempt, signal);
 
       const backoff = Math.min(delay * factor ** (attempt - 1), maxDelay);
       const waitMs = jitter ? Math.random() * backoff : backoff;

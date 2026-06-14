@@ -26,7 +26,9 @@ describe("retry", () => {
       throw new Error("always");
     });
 
-    await expect(retry(fn, { attempts: 2, delay: 0 })).rejects.toThrow("always");
+    await expect(retry(fn, { attempts: 2, delay: 0 })).rejects.toThrow(
+      "always",
+    );
     expect(fn).toHaveBeenCalledTimes(2);
   });
 
@@ -66,7 +68,54 @@ describe("retry", () => {
       { delay: 0, onRetry },
     );
     expect(onRetry).toHaveBeenCalledTimes(1);
-    expect(onRetry).toHaveBeenCalledWith(expect.any(Error), 1);
+    expect(onRetry).toHaveBeenCalledWith(expect.any(Error), 1, undefined);
+  });
+
+  it("passes the signal to shouldRetry and onRetry", async () => {
+    const controller = new AbortController();
+    const onRetry = vi.fn();
+    const shouldRetry = vi.fn(() => true);
+    let calls = 0;
+    await retry(
+      async () => {
+        calls++;
+        if (calls < 2) throw new Error("x");
+        return "done";
+      },
+      { delay: 0, signal: controller.signal, onRetry, shouldRetry },
+    );
+    expect(shouldRetry).toHaveBeenCalledWith(
+      expect.any(Error),
+      1,
+      controller.signal,
+    );
+    expect(onRetry).toHaveBeenCalledWith(
+      expect.any(Error),
+      1,
+      controller.signal,
+    );
+  });
+
+  it("stops without retrying when aborted during an async shouldRetry", async () => {
+    const controller = new AbortController();
+    const onRetry = vi.fn();
+    const fn = vi.fn(async () => {
+      throw new Error("fail");
+    });
+    const promise = retry(fn, {
+      attempts: 5,
+      delay: 1000,
+      signal: controller.signal,
+      onRetry,
+      shouldRetry: () =>
+        new Promise<boolean>((resolve) => {
+          controller.abort();
+          resolve(true);
+        }),
+    });
+    await expect(promise).rejects.toBeInstanceOf(AbortError);
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(onRetry).not.toHaveBeenCalled();
   });
 
   it("aborts a pending wait via signal", async () => {

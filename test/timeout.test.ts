@@ -55,6 +55,21 @@ describe("timeout", () => {
     expect(() => timeout(Promise.resolve(1), Number.NaN)).toThrow(RangeError);
   });
 
+  it("honors a deadline beyond the 32-bit limit instead of timing out early", async () => {
+    vi.useFakeTimers();
+    const ms = 2 ** 31 + 1000; // overflows a raw setTimeout (clamps to 1ms)
+    const guarded = timeout(new Promise<never>(() => {}), ms);
+    const rejected = vi.fn();
+    guarded.catch(rejected);
+
+    // A raw setTimeout would already have rejected; the safe timer must not.
+    await vi.advanceTimersByTimeAsync(2 ** 31 - 1);
+    expect(rejected).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1001);
+    await expect(guarded).rejects.toBeInstanceOf(TimeoutError);
+  });
+
   it("resolves with the factory result when it settles in time", async () => {
     await expect(timeout(() => Promise.resolve("ok"), 1000)).resolves.toBe(
       "ok",
